@@ -277,23 +277,23 @@ export default function Home() {
               Garmin data to AI-ready CSV
             </p>
             <h2 className="max-w-3xl text-2xl font-semibold tracking-normal text-[#101827] sm:text-3xl">
-              Garmin Connectの過去データを、ChatGPT / Gemini / Claude に渡せるCSVへ変換します。
+              Convert your Garmin Connect history into AI-ready CSVs for ChatGPT, Gemini, and Claude.
             </h2>
             <p className="max-w-3xl text-base leading-7 text-[#475467]">
-              Garmin ConnectからエクスポートしたZIPをブラウザ内で読み取り、AI分析に使いやすいCSV入りZIPを生成します。変換処理は端末内で完結し、Garminデータはサーバーへ送信されません。
+              Upload the ZIP you exported from Garmin Connect. We process it entirely in your browser and produce a clean CSV bundle ready for AI analysis. Your Garmin data never leaves your device.
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <HeroFact
               icon={<LockKeyhole aria-hidden="true" size={19} />}
-              label="ローカル変換"
-              value="ZIPの解析とCSV生成はブラウザ内で実行"
+              label="Local processing"
+              value="ZIP parsing and CSV generation run in your browser"
             />
             <HeroFact
               icon={<WalletCards aria-hidden="true" size={19} />}
-              label="ダウンロード料金"
-              value="¥1,200 / Apple Pay・Google Pay対応"
+              label="Download fee"
+              value="¥1,200 — Apple Pay & Google Pay supported"
             />
           </div>
         </div>
@@ -425,40 +425,40 @@ export default function Home() {
 
           <section className="rounded-lg border border-[#d8dee8] bg-white shadow-sm">
             <div className="border-b border-[#e4e8ef] px-4 py-4 sm:px-5">
-              <h2 className="text-base font-semibold">使い方</h2>
+              <h2 className="text-base font-semibold">How it works</h2>
               <p className="text-sm text-[#667085]">
-                Garminの全件データを取り出して、AIに渡すまでの流れです。
+                From Garmin export to AI-ready CSV in three steps.
               </p>
             </div>
             <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-3">
               <GuideStep
-                detail="Garmin Connect → アカウント → データ管理 → データのエクスポート"
+                detail="Garmin Connect > Account > Data Management > Export Your Data"
                 icon={<Database aria-hidden="true" size={19} />}
-                label="Garmin ZIPを取得"
+                label="Export from Garmin"
                 step="1"
               />
               <GuideStep
-                detail="このページにZIPをアップロードすると、CSV入りZIPをブラウザ内で生成します。"
+                detail="Upload the ZIP here. We generate a CSV bundle entirely in your browser."
                 icon={<FileArchive aria-hidden="true" size={19} />}
-                label="ここで変換"
+                label="Convert here"
                 step="2"
               />
               <GuideStep
-                detail="変換後のZIPをChatGPT / Gemini / Claudeにアップロードして質問します。"
+                detail="Upload the converted ZIP to ChatGPT, Gemini, or Claude and ask away."
                 icon={<MessageSquareText aria-hidden="true" size={19} />}
                 isLast
-                label="AIに渡す"
+                label="Send to AI"
                 step="3"
               />
             </div>
             <div className="border-t border-[#e4e8ef] px-4 py-4 sm:px-5">
               <a
                 className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#ccd4df] bg-white px-3 text-sm font-semibold text-[#243044] transition hover:bg-[#f1f4f8]"
-                href="https://www.garmin.com/ja-JP/account/datamanagement/exportdata/"
+                href="https://www.garmin.com/en-US/account/datamanagement/exportdata/"
                 rel="noreferrer"
                 target="_blank"
               >
-                Garminのデータエクスポートページ
+                Open Garmin export page
                 <ExternalLink aria-hidden="true" size={16} />
               </a>
             </div>
@@ -503,10 +503,10 @@ export default function Home() {
               <div className="mb-3 rounded-md border border-[#f6d58f] bg-[#fff9eb] p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#6f4b00]">
                   <WalletCards aria-hidden="true" size={17} />
-                  ダウンロード料金: ¥1,200
+                  Download fee: ¥1,200
                 </div>
                 <p className="mt-1 text-sm text-[#7a5a16]">
-                  Square checkoutでApple Pay / Google Payが利用できます。
+                  Apple Pay and Google Pay are supported via Square checkout.
                 </p>
               </div>
               {downloadableResult ? (
