@@ -187,7 +187,6 @@ export default function Home() {
     try {
       setPaymentState("creating");
       setPaymentError(null);
-      await saveConversionForPayment(result);
 
       const response = await fetch("/api/square/payment-link", {
         method: "POST",
@@ -243,7 +242,8 @@ export default function Home() {
   }
 
   const isProcessing = state === "processing" || restoringPayment;
-  const canDownload = Boolean(result && paidAccess);
+  const downloadableResult = result && paidAccess ? result : null;
+  const canDownload = Boolean(downloadableResult);
   const isCreatingPayment = paymentState === "creating";
 
   return (
@@ -446,6 +446,7 @@ export default function Home() {
               <GuideStep
                 detail="変換後のZIPをChatGPT / Gemini / Claudeにアップロードして質問します。"
                 icon={<MessageSquareText aria-hidden="true" size={19} />}
+                isLast
                 label="AIに渡す"
                 step="3"
               />
@@ -508,12 +509,11 @@ export default function Home() {
                   Square checkoutでApple Pay / Google Payが利用できます。
                 </p>
               </div>
-              {canDownload ? (
+              {downloadableResult ? (
                 <button
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#28735f] px-4 text-sm font-semibold text-white transition hover:bg-[#1f614f] disabled:cursor-not-allowed disabled:bg-[#aab7c2]"
-                  disabled={!result}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#28735f] px-4 text-sm font-semibold text-white transition hover:bg-[#1f614f]"
                   type="button"
-                  onClick={() => result && downloadConversion(result)}
+                  onClick={() => downloadConversion(downloadableResult)}
                 >
                   <Download aria-hidden="true" size={18} />
                   Download ZIP
@@ -655,11 +655,13 @@ function HeroFact({
 function GuideStep({
   detail,
   icon,
+  isLast = false,
   label,
   step,
 }: {
   detail: string;
   icon: ReactNode;
+  isLast?: boolean;
   label: string;
   step: string;
 }) {
@@ -677,11 +679,13 @@ function GuideStep({
         <h3 className="text-sm font-semibold text-[#101827]">{label}</h3>
         <p className="mt-2 text-sm leading-6 text-[#667085]">{detail}</p>
       </div>
-      <ArrowRight
-        aria-hidden="true"
-        className="mt-auto text-[#8b95a1]"
-        size={17}
-      />
+      {isLast ? null : (
+        <ArrowRight
+          aria-hidden="true"
+          className="mt-auto text-[#8b95a1]"
+          size={17}
+        />
+      )}
     </div>
   );
 }
