@@ -35,14 +35,19 @@ export interface ConversionResult {
   warnings: string[];
 }
 
+export interface ConversionBufferResult {
+  buffer: ArrayBuffer;
+  filename: string;
+  files: OutputFileSummary[];
+  warnings: string[];
+}
+
 interface DatasetDefinition {
   key: DatasetKey;
   outputName: string;
   find: (path: string) => boolean;
   streamPaths: string[];
-  preferredPaths: string[];
   columns: string[];
-  preferRootObject?: boolean;
   streamRoot?: boolean;
 }
 
@@ -52,21 +57,8 @@ interface JsonExtraction {
   warnings: string[];
 }
 
-interface ZipStreamHelper<T> {
-  on(event: "data", callback: (data: T) => void): ZipStreamHelper<T>;
-  on(event: "error", callback: (error: Error) => void): ZipStreamHelper<T>;
-  on(event: "end", callback: () => void): ZipStreamHelper<T>;
-  resume(): ZipStreamHelper<T>;
-}
-
-type StreamableZipObject = JSZip.JSZipObject & {
-  internalStream?: (type: "uint8array") => ZipStreamHelper<Uint8Array>;
-  _data?: {
-    uncompressedSize?: number;
-  };
-};
-
 const SOURCE_COLUMNS = ["source_file", "source_row"];
+const JSON_CHUNK_SIZE = 1024 * 1024;
 
 const ACTIVITY_COLUMNS = [
   ...SOURCE_COLUMNS,
@@ -81,7 +73,7 @@ const ACTIVITY_COLUMNS = [
   "moving_duration",
   "distance",
   "calories",
-  "average_speed",
+  "avg_speed",
   "max_speed",
   "elevation_gain",
   "elevation_loss",
@@ -180,16 +172,14 @@ const DATASETS: DatasetDefinition[] = [
     outputName: "activities.csv",
     find: (path) => /(^|\/)[^/]*summarizedactivities\.json$/i.test(path),
     streamPaths: [
+      "$.*.summarizedActivitiesExport.*",
+      "$.*.summarizedActivities.*",
+      "$.*.activities.*",
+      "$.*.activityList.*",
       "$.summarizedActivitiesExport.*",
       "$.summarizedActivities.*",
       "$.activities.*",
       "$.activityList.*",
-    ],
-    preferredPaths: [
-      "summarizedActivitiesExport",
-      "summarizedActivities",
-      "activities",
-      "activityList",
     ],
     columns: ACTIVITY_COLUMNS,
   },
@@ -198,13 +188,6 @@ const DATASETS: DatasetDefinition[] = [
     outputName: "sleep.csv",
     find: (path) => /(^|\/)[^/]*sleepdata\.json$/i.test(path),
     streamPaths: ["$.*"],
-    preferredPaths: [
-      "sleepData",
-      "sleepDataExport",
-      "sleepScores",
-      "sleepSummaries",
-      "dailySleepDTO",
-    ],
     columns: SLEEP_COLUMNS,
   },
   {
@@ -212,19 +195,11 @@ const DATASETS: DatasetDefinition[] = [
     outputName: "daily_health.csv",
     find: (path) => /(^|\/)udsfile_[^/]*\.json$/i.test(path),
     streamPaths: ["$"],
-    preferredPaths: [
-      "userDailySummaryExport",
-      "dailyHealth",
-      "dailySummaries",
-      "wellnessData",
-    ],
     columns: DAILY_HEALTH_COLUMNS,
-    preferRootObject: true,
     streamRoot: true,
   },
 ];
 
-const LARGE_JSON_FALLBACK_LIMIT_BYTES = 10 * 1024 * 1024;
 const GLOBAL_EXCLUDED_FIELD_PATTERNS = [
   /(^|_)id($|_)/,
   /uuid/,
@@ -328,6 +303,19 @@ export async function convertGarminExportCore(
   file: File,
   onProgress?: (progress: ConversionProgress) => void,
 ): Promise<ConversionResult> {
+  const result = await convertGarminExportCoreBuffer(file, onProgress);
+  return {
+    blob: new Blob([result.buffer], { type: "application/zip" }),
+    filename: result.filename,
+    files: result.files,
+    warnings: result.warnings,
+  };
+}
+
+export async function convertGarminExportCoreBuffer(
+  file: File,
+  onProgress?: (progress: ConversionProgress) => void,
+): Promise<ConversionBufferResult> {
   if (!isZipFile(file)) {
     throw new Error("Select a Garmin Connect ZIP export.");
   }
@@ -391,9 +379,9 @@ export async function convertGarminExportCore(
   outputZip.file("prompt_template.txt", buildPromptTemplate(summaries, warnings));
 
   onProgress?.({ phase: "packaging", message: "Creating output ZIP" });
-  const blob = await outputZip.generateAsync(
+  const buffer = await outputZip.generateAsync(
     {
-      type: "blob",
+      type: "arraybuffer",
       compression: "DEFLATE",
       compressionOptions: { level: 6 },
     },
@@ -409,7 +397,7 @@ export async function convertGarminExportCore(
 
   onProgress?.({ phase: "done", message: "Conversion complete" });
   return {
-    blob,
+    buffer,
     filename,
     files: summaries,
     warnings,
@@ -440,25 +428,9 @@ async function extractJsonDataset(
       });
 
       if (streamedCount === 0) {
-        const size = getEntrySize(entry);
-        if (size > LARGE_JSON_FALLBACK_LIMIT_BYTES) {
-          warnings.push(
-            `${dataset.outputName}: skipped fallback parse for large unrecognized JSON ${entry.name}`,
-          );
-        } else {
-          await yieldToEventLoop();
-          const raw = await entry.async("string");
-          await yieldToEventLoop();
-          const parsed = JSON.parse(raw) as unknown;
-          const records = getRecords(parsed, dataset);
-          records.forEach((record, index) => {
-            rows.push({
-              source_file: entry.name,
-              source_row: index + 1,
-              ...flattenRecord(record, dataset.key),
-            });
-          });
-        }
+        warnings.push(
+          `${dataset.outputName}: no supported Garmin JSON structure matched ${entry.name}`,
+        );
       }
 
       sources.add(entry.name);
@@ -490,7 +462,7 @@ async function streamJsonRecords(
       return;
     }
 
-    const values = recordsFromStreamValue(value, dataset);
+    const values = recordsFromStreamValue(value);
     values.forEach((record) => {
       if (!isPlainObject(record)) {
         return;
@@ -504,7 +476,7 @@ async function streamJsonRecords(
   return records;
 }
 
-function recordsFromStreamValue(value: unknown, dataset: DatasetDefinition): unknown[] {
+function recordsFromStreamValue(value: unknown): unknown[] {
   if (Array.isArray(value)) {
     return value.filter((item) => isPlainObject(item));
   }
@@ -513,105 +485,23 @@ function recordsFromStreamValue(value: unknown, dataset: DatasetDefinition): unk
     return [value];
   }
 
-  if (dataset.preferRootObject && isPlainObject(value)) {
-    return [value];
-  }
-
   return [];
 }
 
-function pipeZipEntryToParser(entry: JSZip.JSZipObject, parser: JSONParser): Promise<void> {
-  const stream = (entry as StreamableZipObject).internalStream?.("uint8array");
-  if (!stream) {
-    return entry.async("uint8array").then((content) => {
-      parser.write(content);
-      if (!parser.isEnded) {
-        parser.end();
-      }
-    });
+async function pipeZipEntryToParser(
+  entry: JSZip.JSZipObject,
+  parser: JSONParser,
+): Promise<void> {
+  const content = await entry.async("uint8array");
+
+  for (let offset = 0; offset < content.length; offset += JSON_CHUNK_SIZE) {
+    parser.write(content.subarray(offset, offset + JSON_CHUNK_SIZE));
+    await yieldToEventLoop();
   }
 
-  return new Promise((resolve, reject) => {
-    stream
-      .on("data", (chunk) => {
-        parser.write(chunk);
-      })
-      .on("error", reject)
-      .on("end", () => {
-        try {
-          if (!parser.isEnded) {
-            parser.end();
-          }
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      })
-      .resume();
-  });
-}
-
-function getRecords(root: unknown, dataset: DatasetDefinition): unknown[] {
-  if (Array.isArray(root)) {
-    return root;
+  if (!parser.isEnded) {
+    parser.end();
   }
-
-  for (const path of dataset.preferredPaths) {
-    const value = getPath(root, path);
-    if (Array.isArray(value)) {
-      return value;
-    }
-    if (isPlainObject(value) && dataset.preferRootObject) {
-      return [value];
-    }
-  }
-
-  if (dataset.preferRootObject && isPlainObject(root)) {
-    return [root];
-  }
-
-  const candidates = collectArrayCandidates(root);
-  if (candidates.length > 0) {
-    candidates.sort((a, b) => b.items.length - a.items.length);
-    return candidates[0].items;
-  }
-
-  if (isPlainObject(root)) {
-    return [root];
-  }
-
-  return [];
-}
-
-function getPath(root: unknown, path: string): unknown {
-  return path.split(".").reduce<unknown>((value, segment) => {
-    if (!isPlainObject(value)) {
-      return undefined;
-    }
-    return value[segment];
-  }, root);
-}
-
-function collectArrayCandidates(
-  value: unknown,
-  depth = 0,
-  candidates: { path: string; items: unknown[] }[] = [],
-  path = "",
-): { path: string; items: unknown[] }[] {
-  if (depth > 4 || !isPlainObject(value)) {
-    return candidates;
-  }
-
-  Object.entries(value).forEach(([key, child]) => {
-    const childPath = path ? `${path}.${key}` : key;
-    if (Array.isArray(child) && child.some((item) => isPlainObject(item))) {
-      candidates.push({ path: childPath, items: child });
-    } else if (isPlainObject(child)) {
-      collectArrayCandidates(child, depth + 1, candidates, childPath);
-    }
-  });
-
-  return candidates;
 }
 
 async function extractLapRows(
@@ -923,10 +813,6 @@ function addMissingSourceWarnings(
       warnings.push(`${summary.filename}: no matching Garmin data was found`);
     }
   });
-}
-
-function getEntrySize(entry: JSZip.JSZipObject): number {
-  return (entry as StreamableZipObject)._data?.uncompressedSize ?? 0;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

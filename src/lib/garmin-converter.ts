@@ -2,6 +2,7 @@ import saveAs from "file-saver";
 import {
   convertGarminExportCore,
   isZipFile,
+  type ConversionBufferResult,
   type ConversionProgress,
   type ConversionResult,
 } from "./garmin-converter-core";
@@ -24,7 +25,7 @@ type WorkerResponse =
     }
   | {
       type: "done";
-      result: ConversionResult;
+      result: ConversionBufferResult;
     }
   | {
       type: "error";
@@ -71,7 +72,11 @@ function convertGarminExportInWorker(
       worker.terminate();
 
       if (message.type === "done") {
-        resolve(message.result);
+        const { buffer, ...result } = message.result;
+        resolve({
+          ...result,
+          blob: new Blob([buffer], { type: "application/zip" }),
+        });
       } else {
         reject(new Error(message.message));
       }

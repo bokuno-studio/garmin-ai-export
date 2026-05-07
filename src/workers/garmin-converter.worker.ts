@@ -1,7 +1,7 @@
 import {
-  convertGarminExportCore,
+  convertGarminExportCoreBuffer,
+  type ConversionBufferResult,
   type ConversionProgress,
-  type ConversionResult,
 } from "@/lib/garmin-converter-core";
 
 type WorkerRequest =
@@ -20,7 +20,7 @@ type WorkerResponse =
     }
   | {
       type: "done";
-      result: ConversionResult;
+      result: ConversionBufferResult;
     }
   | {
       type: "error";
@@ -34,11 +34,13 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
     return;
   }
 
-  void convertGarminExportCore(message.file, (progress) => {
+  void convertGarminExportCoreBuffer(message.file, (progress) => {
     self.postMessage({ type: "progress", progress } satisfies WorkerResponse);
   })
     .then((result) => {
-      self.postMessage({ type: "done", result } satisfies WorkerResponse);
+      self.postMessage({ type: "done", result } satisfies WorkerResponse, {
+        transfer: [result.buffer],
+      });
     })
     .catch((error: unknown) => {
       self.postMessage({
