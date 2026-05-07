@@ -51,11 +51,11 @@ Garmin ZIPは数GBになることがあり、Vercelのrequest body上限（4.5MB
 ```
 DI_CONNECT/
   DI-Connect-Analytics/
-    summarizedActivities*.csv   # 活動サマリー（距離・ペース・心拍など）
-    health_snapshot*.csv        # HRV・Body Battery・RHR・ストレス
-    sleep*.csv                  # 睡眠データ
+    *_summarizedActivities.json # 活動サマリー（距離・ペース・心拍など）
+    *_sleepData.json            # 睡眠データ
+    UDSFile_*.json              # Body Battery・RHR・ストレスなどの日次健康サマリー
   DI-Connect-Fitness/
-    *.fit                       # バイナリ（詳細ラップ等）→ v2対応
+    UploadedFiles_*.zip         # 内部の *.fit からラップデータを抽出
   DI-Connect-User/
     user_profile*.json          # プロフィール
 ```
@@ -64,34 +64,25 @@ DI_CONNECT/
 
 ## MVP スコープ（v1）
 
-- [ ] summarizedActivities CSV の抽出・クリーニング
-- [ ] health_snapshot CSV の抽出・クリーニング
-- [ ] sleep CSV の抽出・クリーニング
-- [ ] AIプロンプトテンプレートの同梱
-- [ ] ブラウザ完結で変換・ダウンロード
-- [ ] スマホで操作しやすいUI
+- [x] `*_summarizedActivities.json` → `activities.csv`
+- [x] `*_sleepData.json` → `sleep.csv`
+- [x] `UDSFile_*.json` → `daily_health.csv`
+- [x] UploadedFiles 内の `*.fit` → `laps.csv`
+- [x] AIプロンプトテンプレートの同梱
+- [x] ブラウザ完結で変換・ダウンロード
+- [x] スマホで操作しやすい英語UI
 
 ## v2 以降（スコープ外）
 
-- FIT → CSV 変換（直近N件のラップデータ）
 - 複数ユーザー対応
 - 多言語対応
 
 ---
 
-## 技術スタック（未確定・要検討）
+## 技術スタック
 
-候補A: シンプルHTML/JS（フレームワークなし、ファイル1本）
-候補B: Next.js（静的エクスポート）
+- Next.js（静的エクスポート）
+- Tailwind CSS
+- JSZip / PapaParse / fit-file-parser / FileSaver.js
 
 バックエンド不要のため、静的ホスティング（Vercel / GitHub Pages）で動く。
-
----
-
-## 次にやること
-
-1. 技術スタックを決める（HTML/JS vs Next.js）
-2. Garmin ZIPのフォルダ構造を実際のエクスポートで確認
-3. MVP実装
-
-「状況把握して」と言えばここから続きを始められる。
