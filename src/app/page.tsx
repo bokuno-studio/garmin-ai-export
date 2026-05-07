@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   CheckCircle2,
+  CreditCard,
   Download,
   FileArchive,
   Loader2,
@@ -11,7 +12,7 @@ import {
   Table2,
   UploadCloud,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   abortConversion,
   convertGarminExport,
@@ -20,8 +21,14 @@ import {
   type ConversionProgress,
   type ConversionResult,
 } from "@/lib/garmin-converter";
+import {
+  clearConversionForPayment,
+  loadConversionForPayment,
+  saveConversionForPayment,
+} from "@/lib/conversion-cache";
 
 type AppState = "idle" | "processing" | "complete" | "error";
+type PaymentState = "idle" | "creating" | "error";
 
 const outputLabels: Record<string, string> = {
   "activities.csv": "Activities",
@@ -33,12 +40,88 @@ const outputLabels: Record<string, string> = {
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const runIdRef = useRef(0);
+  const autoDownloadRef = useRef(false);
   const [state, setState] = useState<AppState>("idle");
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<ConversionProgress | null>(null);
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paidAccess, setPaidAccess] = useState(false);
+  const [paymentState, setPaymentState] = useState<PaymentState>("idle");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [restoringPayment, setRestoringPayment] = useState(false);
+
+  useEffect(() => {
+    if (!consumePaidReturn()) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    void Promise.resolve().then(async () => {
+      if (cancelled) {
+        return;
+      }
+
+      setPaidAccess(true);
+      setPaymentError(null);
+      setRestoringPayment(true);
+      setProgress({ phase: "done", message: "Payment confirmed" });
+
+      try {
+        const cachedResult = await loadConversionForPayment();
+        if (cancelled) {
+          return;
+        }
+
+        if (!cachedResult) {
+          setState("error");
+          setError(
+            "Payment confirmed, but the converted ZIP was not found. Upload the Garmin ZIP again to download.",
+          );
+          return;
+        }
+
+        setSelectedFile(null);
+        setResult(cachedResult);
+        setState("complete");
+        setProgress({
+          phase: "done",
+          message: "Payment confirmed. Downloading ZIP",
+        });
+      } catch (cacheError) {
+        if (cancelled) {
+          return;
+        }
+
+        setState("error");
+        setError(
+          cacheError instanceof Error
+            ? cacheError.message
+            : "Unable to restore the converted ZIP after payment.",
+        );
+      } finally {
+        if (!cancelled) {
+          setRestoringPayment(false);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!paidAccess || !result || autoDownloadRef.current) {
+      return;
+    }
+
+    autoDownloadRef.current = true;
+    downloadConversion(result);
+    void clearConversionForPayment();
+  }, [paidAccess, result]);
 
   async function handleFile(file: File | undefined) {
     if (!file || state === "processing") {
@@ -47,9 +130,12 @@ export default function Home() {
 
     const runId = runIdRef.current + 1;
     runIdRef.current = runId;
+    autoDownloadRef.current = false;
     setSelectedFile(file);
     setResult(null);
     setError(null);
+    setPaymentError(null);
+    setPaymentState("idle");
 
     if (!isZipFile(file)) {
       setState("error");
@@ -64,8 +150,14 @@ export default function Home() {
       if (runIdRef.current !== runId) {
         return;
       }
+      if (!paidAccess) {
+        setProgress({
+          phase: "done",
+          message: "Saving ZIP for payment return",
+        });
+        await saveConversionForPayment(conversion);
+      }
       setResult(conversion);
-      downloadConversion(conversion);
       setState("complete");
     } catch (conversionError) {
       if (runIdRef.current !== runId) {
@@ -80,6 +172,44 @@ export default function Home() {
     }
   }
 
+  async function startPayment() {
+    if (!result || paymentState === "creating") {
+      return;
+    }
+
+    try {
+      setPaymentState("creating");
+      setPaymentError(null);
+      await saveConversionForPayment(result);
+
+      const response = await fetch("/api/square/payment-link", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(getPaymentErrorMessage(payload));
+      }
+
+      const url = getPaymentLinkUrl(payload);
+      if (!url) {
+        throw new Error("Payment link response was invalid.");
+      }
+
+      window.location.assign(url);
+    } catch (paymentFailure) {
+      setPaymentState("error");
+      setPaymentError(
+        paymentFailure instanceof Error
+          ? paymentFailure.message
+          : "Unable to open Square checkout.",
+      );
+    }
+  }
+
   function openPicker() {
     if (isProcessing) {
       return;
@@ -90,17 +220,24 @@ export default function Home() {
   function reset() {
     runIdRef.current += 1;
     abortConversion();
+    autoDownloadRef.current = false;
     setState("idle");
     setSelectedFile(null);
     setProgress(null);
     setResult(null);
     setError(null);
+    setPaidAccess(false);
+    setPaymentState("idle");
+    setPaymentError(null);
+    void clearConversionForPayment();
     if (inputRef.current) {
       inputRef.current.value = "";
     }
   }
 
-  const isProcessing = state === "processing";
+  const isProcessing = state === "processing" || restoringPayment;
+  const canDownload = Boolean(result && paidAccess);
+  const isCreatingPayment = paymentState === "creating";
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-[#101827]">
@@ -284,15 +421,48 @@ export default function Home() {
               )}
             </div>
             <div className="border-t border-[#e4e8ef] p-4">
-              <button
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#28735f] px-4 text-sm font-semibold text-white transition hover:bg-[#1f614f] disabled:cursor-not-allowed disabled:bg-[#aab7c2]"
-                disabled={!result}
-                type="button"
-                onClick={() => result && downloadConversion(result)}
-              >
-                <Download aria-hidden="true" size={18} />
-                Download ZIP
-              </button>
+              {canDownload ? (
+                <button
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#28735f] px-4 text-sm font-semibold text-white transition hover:bg-[#1f614f] disabled:cursor-not-allowed disabled:bg-[#aab7c2]"
+                  disabled={!result}
+                  type="button"
+                  onClick={() => result && downloadConversion(result)}
+                >
+                  <Download aria-hidden="true" size={18} />
+                  Download ZIP
+                </button>
+              ) : (
+                <button
+                  className="inline-flex min-h-11 w-full flex-wrap items-center justify-center gap-2 rounded-md bg-[#28735f] px-4 text-center text-sm font-semibold text-white transition hover:bg-[#1f614f] disabled:cursor-not-allowed disabled:bg-[#aab7c2]"
+                  disabled={!result || isCreatingPayment}
+                  type="button"
+                  onClick={() => void startPayment()}
+                >
+                  {isCreatingPayment ? (
+                    <Loader2 aria-hidden="true" className="animate-spin" size={18} />
+                  ) : (
+                    <CreditCard aria-hidden="true" size={18} />
+                  )}
+                  {isCreatingPayment ? "Opening Square checkout" : "Pay \u00a51,200 to Download"}
+                </button>
+              )}
+
+              {paymentError ? (
+                <div className="mt-3 flex gap-2 rounded-md border border-[#f2b8b5] bg-[#fff5f5] p-3 text-[#8a241d]">
+                  <AlertCircle
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0"
+                    size={17}
+                  />
+                  <p className="text-sm font-medium">{paymentError}</p>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-[#667085]">
+                  {canDownload
+                    ? "Payment confirmed. Download is unlocked."
+                    : "Secure checkout by Square. Apple Pay and Google Pay appear when available."}
+                </p>
+              )}
             </div>
           </section>
 
@@ -315,6 +485,11 @@ export default function Home() {
                 active={state === "complete"}
                 complete={state === "complete"}
                 label="ZIP ready"
+              />
+              <StatusRow
+                active={paidAccess}
+                complete={paidAccess}
+                label="Payment confirmed"
               />
               {result?.warnings.length ? (
                 <div className="rounded-md border border-[#f6d58f] bg-[#fff9eb] p-3 text-sm text-[#7a4d00]">
@@ -377,4 +552,39 @@ function formatBytes(bytes: number): string {
   const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** exponent;
   return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
+function consumePaidReturn(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("paid") !== "true") {
+    return false;
+  }
+
+  url.searchParams.delete("paid");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  return true;
+}
+
+function getPaymentLinkUrl(payload: unknown): string | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  return typeof payload.url === "string" ? payload.url : null;
+}
+
+function getPaymentErrorMessage(payload: unknown): string {
+  if (!isRecord(payload) || typeof payload.error !== "string") {
+    return "Unable to create a Square checkout link.";
+  }
+
+  return payload.error;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
