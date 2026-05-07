@@ -2,17 +2,23 @@
 
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   CreditCard,
+  Database,
   Download,
+  ExternalLink,
   FileArchive,
   Loader2,
+  LockKeyhole,
+  MessageSquareText,
   RefreshCcw,
   ShieldCheck,
   Table2,
   UploadCloud,
+  WalletCards,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   abortConversion,
   convertGarminExport,
@@ -264,128 +270,199 @@ export default function Home() {
         </div>
       </header>
 
+      <section className="border-b border-[#d8dee8] bg-white">
+        <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-3">
+            <p className="text-sm font-semibold uppercase tracking-normal text-[#28735f]">
+              Garmin data to AI-ready CSV
+            </p>
+            <h2 className="max-w-3xl text-2xl font-semibold tracking-normal text-[#101827] sm:text-3xl">
+              Garmin Connectの過去データを、ChatGPT / Gemini / Claude に渡せるCSVへ変換します。
+            </h2>
+            <p className="max-w-3xl text-base leading-7 text-[#475467]">
+              Garmin ConnectからエクスポートしたZIPをブラウザ内で読み取り、AI分析に使いやすいCSV入りZIPを生成します。変換処理は端末内で完結し、Garminデータはサーバーへ送信されません。
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <HeroFact
+              icon={<LockKeyhole aria-hidden="true" size={19} />}
+              label="ローカル変換"
+              value="ZIPの解析とCSV生成はブラウザ内で実行"
+            />
+            <HeroFact
+              icon={<WalletCards aria-hidden="true" size={19} />}
+              label="ダウンロード料金"
+              value="¥1,200 / Apple Pay・Google Pay対応"
+            />
+          </div>
+        </div>
+      </section>
+
       <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_380px]">
-        <section className="rounded-lg border border-[#d8dee8] bg-white shadow-sm">
-          <div className="border-b border-[#e4e8ef] px-4 py-4 sm:px-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold">ZIP input</h2>
-                <p className="text-sm text-[#667085]">
-                  Garmin Connect export archive
-                </p>
+        <div className="space-y-5">
+          <section className="rounded-lg border border-[#d8dee8] bg-white shadow-sm">
+            <div className="border-b border-[#e4e8ef] px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">ZIP input</h2>
+                  <p className="text-sm text-[#667085]">
+                    Garmin Connect export archive
+                  </p>
+                </div>
+                {selectedFile ? (
+                  <button
+                    className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#ccd4df] bg-white px-3 text-sm font-medium text-[#243044] transition hover:bg-[#f1f4f8] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isProcessing}
+                    type="button"
+                    onClick={reset}
+                  >
+                    <RefreshCcw aria-hidden="true" size={16} />
+                    Reset
+                  </button>
+                ) : null}
               </div>
-              {selectedFile ? (
-                <button
-                  className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#ccd4df] bg-white px-3 text-sm font-medium text-[#243044] transition hover:bg-[#f1f4f8] disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isProcessing}
-                  type="button"
-                  onClick={reset}
-                >
-                  <RefreshCcw aria-hidden="true" size={16} />
-                  Reset
-                </button>
+            </div>
+
+            <div className="p-4 sm:p-5">
+              <input
+                ref={inputRef}
+                accept=".zip,application/zip,application/x-zip-compressed"
+                className="sr-only"
+                type="file"
+                onChange={(event) => void handleFile(event.target.files?.[0])}
+              />
+
+              <button
+                className={[
+                  "flex min-h-[300px] w-full flex-col items-center justify-center gap-5 rounded-lg border-2 border-dashed px-5 py-8 text-center transition",
+                  dragActive
+                    ? "border-[#28735f] bg-[#eef8f2]"
+                    : "border-[#cbd5e1] bg-[#f8fafc] hover:border-[#28735f] hover:bg-[#f3fbf6]",
+                  isProcessing ? "cursor-wait opacity-80" : "cursor-pointer",
+                ].join(" ")}
+                disabled={isProcessing}
+                type="button"
+                onClick={openPicker}
+                onDragLeave={() => setDragActive(false)}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragActive(true);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDragActive(false);
+                  if (isProcessing) {
+                    return;
+                  }
+                  void handleFile(event.dataTransfer.files?.[0]);
+                }}
+              >
+                <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-[#28735f] shadow-sm ring-1 ring-[#dbe3ed]">
+                  {isProcessing ? (
+                    <Loader2 aria-hidden="true" className="animate-spin" size={32} />
+                  ) : (
+                    <UploadCloud aria-hidden="true" size={32} />
+                  )}
+                </span>
+                <span className="space-y-2">
+                  <span className="block text-xl font-semibold">
+                    {selectedFile ? selectedFile.name : "Select Garmin ZIP"}
+                  </span>
+                  <span className="block text-sm text-[#667085]">
+                    {selectedFile
+                      ? formatBytes(selectedFile.size)
+                      : "Tap to choose a file"}
+                  </span>
+                </span>
+              </button>
+
+              {progress ? (
+                <div className="mt-4 rounded-lg border border-[#d8dee8] bg-[#fbfcfe] p-4">
+                  <div className="flex items-center gap-3">
+                    {state === "complete" ? (
+                      <CheckCircle2
+                        aria-hidden="true"
+                        className="shrink-0 text-[#188455]"
+                        size={22}
+                      />
+                    ) : state === "error" ? (
+                      <AlertCircle
+                        aria-hidden="true"
+                        className="shrink-0 text-[#b42318]"
+                        size={22}
+                      />
+                    ) : (
+                      <Loader2
+                        aria-hidden="true"
+                        className="shrink-0 animate-spin text-[#28735f]"
+                        size={22}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{progress.message}</p>
+                      <p className="text-xs uppercase text-[#667085]">
+                        {progress.phase}
+                      </p>
+                    </div>
+                    {progress.total ? (
+                      <span className="rounded-full bg-[#e9eef5] px-2.5 py-1 text-xs font-semibold text-[#344054]">
+                        {progress.current ?? 0}/{progress.total}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="mt-4 flex gap-3 rounded-lg border border-[#f2b8b5] bg-[#fff5f5] p-4 text-[#8a241d]">
+                  <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={20} />
+                  <p className="text-sm font-medium">{error}</p>
+                </div>
               ) : null}
             </div>
-          </div>
+          </section>
 
-          <div className="p-4 sm:p-5">
-            <input
-              ref={inputRef}
-              accept=".zip,application/zip,application/x-zip-compressed"
-              className="sr-only"
-              type="file"
-              onChange={(event) => void handleFile(event.target.files?.[0])}
-            />
-
-            <button
-              className={[
-                "flex min-h-[300px] w-full flex-col items-center justify-center gap-5 rounded-lg border-2 border-dashed px-5 py-8 text-center transition",
-                dragActive
-                  ? "border-[#28735f] bg-[#eef8f2]"
-                  : "border-[#cbd5e1] bg-[#f8fafc] hover:border-[#28735f] hover:bg-[#f3fbf6]",
-                isProcessing ? "cursor-wait opacity-80" : "cursor-pointer",
-              ].join(" ")}
-              disabled={isProcessing}
-              type="button"
-              onClick={openPicker}
-              onDragLeave={() => setDragActive(false)}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDragActive(true);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDragActive(false);
-                if (isProcessing) {
-                  return;
-                }
-                void handleFile(event.dataTransfer.files?.[0]);
-              }}
-            >
-              <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-[#28735f] shadow-sm ring-1 ring-[#dbe3ed]">
-                {isProcessing ? (
-                  <Loader2 aria-hidden="true" className="animate-spin" size={32} />
-                ) : (
-                  <UploadCloud aria-hidden="true" size={32} />
-                )}
-              </span>
-              <span className="space-y-2">
-                <span className="block text-xl font-semibold">
-                  {selectedFile ? selectedFile.name : "Select Garmin ZIP"}
-                </span>
-                <span className="block text-sm text-[#667085]">
-                  {selectedFile
-                    ? formatBytes(selectedFile.size)
-                    : "Tap to choose a file"}
-                </span>
-              </span>
-            </button>
-
-            {progress ? (
-              <div className="mt-4 rounded-lg border border-[#d8dee8] bg-[#fbfcfe] p-4">
-                <div className="flex items-center gap-3">
-                  {state === "complete" ? (
-                    <CheckCircle2
-                      aria-hidden="true"
-                      className="shrink-0 text-[#188455]"
-                      size={22}
-                    />
-                  ) : state === "error" ? (
-                    <AlertCircle
-                      aria-hidden="true"
-                      className="shrink-0 text-[#b42318]"
-                      size={22}
-                    />
-                  ) : (
-                    <Loader2
-                      aria-hidden="true"
-                      className="shrink-0 animate-spin text-[#28735f]"
-                      size={22}
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{progress.message}</p>
-                    <p className="text-xs uppercase text-[#667085]">
-                      {progress.phase}
-                    </p>
-                  </div>
-                  {progress.total ? (
-                    <span className="rounded-full bg-[#e9eef5] px-2.5 py-1 text-xs font-semibold text-[#344054]">
-                      {progress.current ?? 0}/{progress.total}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {error ? (
-              <div className="mt-4 flex gap-3 rounded-lg border border-[#f2b8b5] bg-[#fff5f5] p-4 text-[#8a241d]">
-                <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={20} />
-                <p className="text-sm font-medium">{error}</p>
-              </div>
-            ) : null}
-          </div>
-        </section>
+          <section className="rounded-lg border border-[#d8dee8] bg-white shadow-sm">
+            <div className="border-b border-[#e4e8ef] px-4 py-4 sm:px-5">
+              <h2 className="text-base font-semibold">使い方</h2>
+              <p className="text-sm text-[#667085]">
+                Garminの全件データを取り出して、AIに渡すまでの流れです。
+              </p>
+            </div>
+            <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-3">
+              <GuideStep
+                detail="Garmin Connect → アカウント → データ管理 → データのエクスポート"
+                icon={<Database aria-hidden="true" size={19} />}
+                label="Garmin ZIPを取得"
+                step="1"
+              />
+              <GuideStep
+                detail="このページにZIPをアップロードすると、CSV入りZIPをブラウザ内で生成します。"
+                icon={<FileArchive aria-hidden="true" size={19} />}
+                label="ここで変換"
+                step="2"
+              />
+              <GuideStep
+                detail="変換後のZIPをChatGPT / Gemini / Claudeにアップロードして質問します。"
+                icon={<MessageSquareText aria-hidden="true" size={19} />}
+                label="AIに渡す"
+                step="3"
+              />
+            </div>
+            <div className="border-t border-[#e4e8ef] px-4 py-4 sm:px-5">
+              <a
+                className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#ccd4df] bg-white px-3 text-sm font-semibold text-[#243044] transition hover:bg-[#f1f4f8]"
+                href="https://www.garmin.com/ja-JP/account/datamanagement/exportdata/"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Garminのデータエクスポートページ
+                <ExternalLink aria-hidden="true" size={16} />
+              </a>
+            </div>
+          </section>
+        </div>
 
         <aside className="space-y-5">
           <section className="rounded-lg border border-[#d8dee8] bg-white shadow-sm">
@@ -422,6 +499,15 @@ export default function Home() {
               )}
             </div>
             <div className="border-t border-[#e4e8ef] p-4">
+              <div className="mb-3 rounded-md border border-[#f6d58f] bg-[#fff9eb] p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#6f4b00]">
+                  <WalletCards aria-hidden="true" size={17} />
+                  ダウンロード料金: ¥1,200
+                </div>
+                <p className="mt-1 text-sm text-[#7a5a16]">
+                  Square checkoutでApple Pay / Google Payが利用できます。
+                </p>
+              </div>
               {canDownload ? (
                 <button
                   className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#28735f] px-4 text-sm font-semibold text-white transition hover:bg-[#1f614f] disabled:cursor-not-allowed disabled:bg-[#aab7c2]"
@@ -461,7 +547,7 @@ export default function Home() {
                 <p className="mt-3 text-sm text-[#667085]">
                   {canDownload
                     ? "Payment confirmed. Download is unlocked."
-                    : "Secure checkout by Square. Apple Pay and Google Pay appear when available."}
+                    : "Upload and convert a Garmin ZIP before opening Square checkout."}
                 </p>
               )}
             </div>
@@ -540,6 +626,62 @@ function StatusRow({
         )}
       </span>
       <span className="text-sm font-medium text-[#344054]">{label}</span>
+    </div>
+  );
+}
+
+function HeroFact({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-h-[92px] items-start gap-3 rounded-lg border border-[#d8dee8] bg-[#fbfcfe] p-4">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#eaf7ef] text-[#28735f]">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-[#101827]">{label}</p>
+        <p className="mt-1 text-sm leading-6 text-[#667085]">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function GuideStep({
+  detail,
+  icon,
+  label,
+  step,
+}: {
+  detail: string;
+  icon: ReactNode;
+  label: string;
+  step: string;
+}) {
+  return (
+    <div className="flex min-h-[176px] flex-col gap-3 rounded-lg border border-[#d8dee8] bg-[#fbfcfe] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#eef3fa] text-[#24527a]">
+          {icon}
+        </div>
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eaf7ef] text-sm font-semibold text-[#28735f]">
+          {step}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-[#101827]">{label}</h3>
+        <p className="mt-2 text-sm leading-6 text-[#667085]">{detail}</p>
+      </div>
+      <ArrowRight
+        aria-hidden="true"
+        className="mt-auto text-[#8b95a1]"
+        size={17}
+      />
     </div>
   );
 }
