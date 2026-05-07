@@ -5,22 +5,31 @@ const DB_VERSION = 1;
 const STORE_NAME = "conversion-cache";
 const LATEST_RESULT_ID = "latest";
 
-type ConversionCacheRecord = ConversionResult & {
+type ConversionCacheRecord = {
+  blob?: Blob;
+  buffer?: ArrayBuffer;
+  files: ConversionResult["files"];
+  filename: string;
   id: typeof LATEST_RESULT_ID;
   savedAt: number;
+  warnings: string[];
 };
 
 export async function saveConversionForPayment(
   result: ConversionResult,
 ): Promise<void> {
+  const buffer = await result.blob.arrayBuffer();
   const db = await openConversionDb();
   try {
     const transaction = db.transaction(STORE_NAME, "readwrite");
     await requestToPromise(
       transaction.objectStore(STORE_NAME).put({
-        ...result,
+        buffer,
+        files: result.files,
+        filename: result.filename,
         id: LATEST_RESULT_ID,
         savedAt: Date.now(),
+        warnings: result.warnings,
       } satisfies ConversionCacheRecord),
     );
   } finally {
@@ -40,8 +49,16 @@ export async function loadConversionForPayment(): Promise<ConversionResult | nul
       return null;
     }
 
+    const blob = record.buffer
+      ? new Blob([record.buffer], { type: "application/zip" })
+      : record.blob;
+
+    if (!blob) {
+      return null;
+    }
+
     return {
-      blob: record.blob,
+      blob,
       filename: record.filename,
       files: record.files,
       warnings: record.warnings,

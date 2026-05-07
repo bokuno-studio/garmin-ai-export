@@ -155,6 +155,7 @@ export default function Home() {
           phase: "done",
           message: "Saving ZIP for payment return",
         });
+        // Preflight browser storage so storage failures block payment, not download.
         await saveConversionForPayment(conversion);
       }
       setResult(conversion);
