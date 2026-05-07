@@ -31,6 +31,7 @@ const outputLabels: Record<string, string> = {
 
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const runIdRef = useRef(0);
   const [state, setState] = useState<AppState>("idle");
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -39,10 +40,12 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File | undefined) {
-    if (!file) {
+    if (!file || state === "processing") {
       return;
     }
 
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
     setSelectedFile(file);
     setResult(null);
     setError(null);
@@ -57,10 +60,16 @@ export default function Home() {
       setState("processing");
       setProgress({ phase: "reading", message: "Reading ZIP archive" });
       const conversion = await convertGarminExport(file, setProgress);
+      if (runIdRef.current !== runId) {
+        return;
+      }
       setResult(conversion);
       downloadConversion(conversion);
       setState("complete");
     } catch (conversionError) {
+      if (runIdRef.current !== runId) {
+        return;
+      }
       setState("error");
       setError(
         conversionError instanceof Error
@@ -71,10 +80,14 @@ export default function Home() {
   }
 
   function openPicker() {
+    if (isProcessing) {
+      return;
+    }
     inputRef.current?.click();
   }
 
   function reset() {
+    runIdRef.current += 1;
     setState("idle");
     setSelectedFile(null);
     setProgress(null);
@@ -163,6 +176,9 @@ export default function Home() {
               onDrop={(event) => {
                 event.preventDefault();
                 setDragActive(false);
+                if (isProcessing) {
+                  return;
+                }
                 void handleFile(event.dataTransfer.files?.[0]);
               }}
             >
@@ -284,7 +300,7 @@ export default function Home() {
             </div>
             <div className="space-y-3 p-4">
               <StatusRow
-                active={state !== "idle"}
+                active={state === "processing" || state === "complete"}
                 complete={state === "complete"}
                 label="Archive read"
               />
@@ -303,6 +319,9 @@ export default function Home() {
                   {result.warnings.slice(0, 3).map((warning) => (
                     <p key={warning}>{warning}</p>
                   ))}
+                  {result.warnings.length > 3 ? (
+                    <p>{result.warnings.length - 3} more conversion notes</p>
+                  ) : null}
                 </div>
               ) : null}
             </div>

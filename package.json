@@ -9,6 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@streamparser/json": "^0.0.22",
     "file-saver": "^2.0.5",
     "fit-file-parser": "^3.0.0",
     "jszip": "^3.10.1",
