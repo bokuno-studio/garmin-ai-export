@@ -4,14 +4,10 @@ import {
   type ConversionProgress,
 } from "@/lib/garmin-converter-core";
 
-type WorkerRequest =
-  | {
-      type: "convert";
-      file: File;
-    }
-  | {
-      type: "abort";
-    };
+type WorkerRequest = {
+  type: "convert";
+  file: File;
+};
 
 type WorkerResponse =
   | {
@@ -29,10 +25,6 @@ type WorkerResponse =
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
-
-  if (message.type !== "convert") {
-    return;
-  }
 
   void convertGarminExportCoreBuffer(message.file, (progress) => {
     self.postMessage({ type: "progress", progress } satisfies WorkerResponse);

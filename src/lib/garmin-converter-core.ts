@@ -48,6 +48,7 @@ interface DatasetDefinition {
   find: (path: string) => boolean;
   streamPaths: string[];
   columns: string[];
+  // Root-object datasets such as UDS are small; keepStack lets "$" emit the full record.
   streamRoot?: boolean;
 }
 
@@ -79,7 +80,7 @@ const ACTIVITY_COLUMNS = [
   "elevation_loss",
   "min_elevation",
   "max_elevation",
-  "average_hr",
+  "avg_hr",
   "max_hr",
   "avg_power",
   "max_power",

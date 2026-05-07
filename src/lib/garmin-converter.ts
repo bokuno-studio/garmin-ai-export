@@ -9,14 +9,10 @@ import {
 
 export { isZipFile, type ConversionProgress, type ConversionResult };
 
-type WorkerRequest =
-  | {
-      type: "convert";
-      file: File;
-    }
-  | {
-      type: "abort";
-    };
+type WorkerRequest = {
+  type: "convert";
+  file: File;
+};
 
 type WorkerResponse =
   | {
@@ -32,6 +28,9 @@ type WorkerResponse =
       message: string;
     };
 
+let activeWorker: Worker | null = null;
+let activeReject: ((error: Error) => void) | null = null;
+
 export async function convertGarminExport(
   file: File,
   onProgress?: (progress: ConversionProgress) => void,
@@ -41,6 +40,13 @@ export async function convertGarminExport(
   }
 
   return convertGarminExportCore(file, onProgress);
+}
+
+export function abortConversion(): void {
+  activeWorker?.terminate();
+  activeWorker = null;
+  activeReject?.(new DOMException("Conversion aborted.", "AbortError"));
+  activeReject = null;
 }
 
 export function downloadConversion(result: ConversionResult): void {
@@ -56,10 +62,14 @@ function convertGarminExportInWorker(
   onProgress?: (progress: ConversionProgress) => void,
 ): Promise<ConversionResult> {
   return new Promise((resolve, reject) => {
+    abortConversion();
+
     const worker = new Worker(
       new URL("../workers/garmin-converter.worker.ts", import.meta.url),
       { type: "module" },
     );
+    activeWorker = worker;
+    activeReject = reject;
 
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
       const message = event.data;
@@ -70,6 +80,10 @@ function convertGarminExportInWorker(
       }
 
       worker.terminate();
+      if (activeWorker === worker) {
+        activeWorker = null;
+        activeReject = null;
+      }
 
       if (message.type === "done") {
         const { buffer, ...result } = message.result;
@@ -84,6 +98,10 @@ function convertGarminExportInWorker(
 
     worker.onerror = (event) => {
       worker.terminate();
+      if (activeWorker === worker) {
+        activeWorker = null;
+        activeReject = null;
+      }
       reject(new Error(event.message || "Conversion worker failed."));
     };
 

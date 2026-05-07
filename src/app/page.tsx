@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import {
+  abortConversion,
   convertGarminExport,
   downloadConversion,
   isZipFile,
@@ -88,6 +89,7 @@ export default function Home() {
 
   function reset() {
     runIdRef.current += 1;
+    abortConversion();
     setState("idle");
     setSelectedFile(null);
     setProgress(null);
