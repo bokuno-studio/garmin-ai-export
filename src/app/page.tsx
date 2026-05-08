@@ -192,7 +192,9 @@ export default function Home() {
         method: "POST",
         headers: {
           Accept: "application/json",
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ intent: "create_payment_link" }),
       });
       const payload: unknown = await response.json().catch(() => null);
 

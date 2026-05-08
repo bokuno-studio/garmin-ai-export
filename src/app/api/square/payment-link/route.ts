@@ -8,16 +8,49 @@ const PRODUCT_NAME = "Garmin AI Export";
 const PRODUCT_PRICE = 1200;
 const PRODUCT_CURRENCY = "JPY";
 const PRODUCTION_REDIRECT_URL = "https://garmin-ai-export.vercel.app?paid=true";
+const PRODUCTION_ORIGIN = new URL(PRODUCTION_REDIRECT_URL).origin;
+const PAYMENT_LINK_INTENT = "create_payment_link";
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const RATE_LIMIT_BUCKET_LIMIT = 10_000;
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+};
+
+type RateLimitBucket = {
+  count: number;
+  resetAt: number;
+};
+
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
 
 export async function POST(request: NextRequest) {
+  const originError = validateRequestOrigin(request);
+  if (originError) {
+    return originError;
+  }
+
+  const rateLimit = checkRateLimit(getRateLimitKey(request));
+  if (!rateLimit.allowed) {
+    return json(
+      { error: "Too many payment link requests. Try again later." },
+      429,
+      {
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+      },
+    );
+  }
+
+  const intent = await getPaymentIntent(request);
+  if (intent !== PAYMENT_LINK_INTENT) {
+    return json({ error: "Invalid payment link request." }, 400);
+  }
+
   const accessToken = process.env.SQUARE_ACCESS_TOKEN;
   const locationId = process.env.SQUARE_LOCATION_ID;
 
   if (!accessToken || !locationId) {
-    return NextResponse.json(
-      { error: "Square payment settings are not configured." },
-      { status: 500 },
-    );
+    return json({ error: "Square payment settings are not configured." }, 500);
   }
 
   try {
@@ -54,31 +87,25 @@ export async function POST(request: NextRequest) {
     const payload: unknown = await squareResponse.json().catch(() => null);
 
     if (!squareResponse.ok) {
-      return NextResponse.json(
-        { error: getSquareErrorMessage(payload) },
-        { status: squareResponse.status },
+      console.error(
+        "Square payment link creation failed",
+        JSON.stringify(payload),
+      );
+      return json(
+        { error: "Square payment link creation failed." },
+        squareResponse.status,
       );
     }
 
     const url = getPaymentLinkUrl(payload);
     if (!url) {
-      return NextResponse.json(
-        { error: "Square did not return a payment link URL." },
-        { status: 502 },
-      );
+      return json({ error: "Square did not return a payment link URL." }, 502);
     }
 
-    return NextResponse.json({ url });
+    return json({ url }, 200);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to create a Square payment link.",
-      },
-      { status: 502 },
-    );
+    console.error("Unable to create a Square payment link", error);
+    return json({ error: "Unable to create a Square checkout link." }, 502);
   }
 }
 
@@ -114,23 +141,125 @@ function getPaymentLinkUrl(payload: unknown): string | null {
     : null;
 }
 
-function getSquareErrorMessage(payload: unknown): string {
-  if (!isRecord(payload) || !Array.isArray(payload.errors)) {
-    return "Square payment link creation failed.";
+async function getPaymentIntent(request: NextRequest): Promise<string | null> {
+  const payload = (await request.json().catch(() => null)) as unknown;
+  return isRecord(payload) && typeof payload.intent === "string"
+    ? payload.intent
+    : null;
+}
+
+function validateRequestOrigin(request: NextRequest): NextResponse | null {
+  const requestOrigin = getRequestOrigin(request);
+  if (!requestOrigin) {
+    return json({ error: "Payment link requests require a browser origin." }, 403);
   }
 
-  const firstError = payload.errors.find(isRecord);
-  if (!firstError) {
-    return "Square payment link creation failed.";
+  if (!getAllowedOrigins(request).has(requestOrigin)) {
+    return json({ error: "Payment link requests must come from this site." }, 403);
   }
 
-  if (typeof firstError.detail === "string") {
-    return firstError.detail;
+  return null;
+}
+
+function getRequestOrigin(request: NextRequest): string | null {
+  const origin = request.headers.get("origin");
+  if (origin) {
+    return origin;
   }
 
-  return typeof firstError.code === "string"
-    ? firstError.code
-    : "Square payment link creation failed.";
+  const referer = request.headers.get("referer");
+  if (!referer) {
+    return null;
+  }
+
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getAllowedOrigins(request: NextRequest): Set<string> {
+  const origins = new Set<string>([PRODUCTION_ORIGIN]);
+  process.env.SQUARE_ALLOWED_ORIGINS?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .forEach((origin) => origins.add(origin));
+
+  if (process.env.VERCEL_URL) {
+    origins.add(`https://${process.env.VERCEL_URL}`);
+  }
+
+  if (
+    process.env.NODE_ENV === "development" ||
+    process.env.VERCEL_ENV === "preview"
+  ) {
+    origins.add(request.nextUrl.origin);
+  }
+
+  return origins;
+}
+
+function getRateLimitKey(request: NextRequest): string {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const ip =
+    forwardedFor?.split(",").at(0)?.trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown";
+
+  return `payment-link:${ip}`;
+}
+
+function checkRateLimit(key: string):
+  | { allowed: true }
+  | { allowed: false; retryAfterSeconds: number } {
+  const now = Date.now();
+  const current = rateLimitBuckets.get(key);
+
+  if (!current || current.resetAt <= now) {
+    pruneRateLimitBuckets(now);
+    rateLimitBuckets.set(key, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
+    return { allowed: true };
+  }
+
+  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+    };
+  }
+
+  current.count += 1;
+  return { allowed: true };
+}
+
+function pruneRateLimitBuckets(now: number): void {
+  if (rateLimitBuckets.size < RATE_LIMIT_BUCKET_LIMIT) {
+    return;
+  }
+
+  rateLimitBuckets.forEach((bucket, key) => {
+    if (bucket.resetAt <= now) {
+      rateLimitBuckets.delete(key);
+    }
+  });
+}
+
+function json(
+  body: Record<string, unknown>,
+  status: number,
+  headers: Record<string, string> = {},
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      ...NO_STORE_HEADERS,
+      ...headers,
+    },
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
