@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://garmin-ai-export.vercel.app/sitemap.xml

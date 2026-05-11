@@ -1,0 +1,22 @@
+# Garmin AI Export
+
+Garmin AI Export は、Garmin Connect からエクスポートした活動・睡眠・健康データの ZIP ファイルを、ChatGPT / Gemini / Claude などの AI が読み込みやすい CSV ファイルに変換するブラウザ完結の Web アプリです。
+
+## Main Features
+
+- Converts Garmin Connect ZIP exports in the browser.
+- Generates activities.csv, sleep.csv, daily_health.csv, and laps.csv.
+- Keeps health and activity data on the user's device during conversion.
+- Produces a ZIP bundle suitable for upload to ChatGPT, Gemini, Claude, or other AI analysis tools.
+
+## Privacy
+
+Garmin data is parsed locally in the browser. The uploaded ZIP and generated CSV files are not sent to Garmin AI Export servers for conversion.
+
+## Price
+
+Download fee: ¥300. Apple Pay and Google Pay are supported through Square checkout.
+
+## Canonical URL
+
+https://garmin-ai-export.vercel.app/

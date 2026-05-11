@@ -60,6 +60,7 @@ interface JsonExtraction {
 
 const SOURCE_COLUMNS = ["source_file", "source_row"];
 const JSON_CHUNK_SIZE = 1024 * 1024;
+const CSV_FORMULA_ESCAPE_PATTERN = /^\s*[=+\-@\t\r]/;
 
 const ACTIVITY_COLUMNS = [
   ...SOURCE_COLUMNS,
@@ -761,6 +762,7 @@ function toCsv(rows: CsvRow[], preferredColumns: string[]): string {
   const columns = collectColumns(rows, preferredColumns);
   return Papa.unparse(rows, {
     columns,
+    escapeFormulae: CSV_FORMULA_ESCAPE_PATTERN,
     header: true,
     newline: "\n",
   });
