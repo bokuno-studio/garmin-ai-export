@@ -446,7 +446,7 @@ export default function Home() {
                 step="2"
               />
               <GuideStep
-                detail="Upload the converted ZIP to ChatGPT, Gemini, or Claude and ask away."
+                detail="Send to ChatGPT as a ZIP, or unzip first and upload the CSVs to Claude or Gemini."
                 icon={<MessageSquareText aria-hidden="true" size={19} />}
                 isLast
                 label="Send to AI"
@@ -628,6 +628,9 @@ export default function Home() {
               </FaqItem>
               <FaqItem question="What can I do with the CSV files?">
                 Upload them to ChatGPT, Gemini, Claude, spreadsheet software, or another analysis tool to review training patterns, sleep trends, and daily health signals.
+              </FaqItem>
+              <FaqItem question="How do I send the bundle to each AI tool?">
+                ChatGPT (Advanced Data Analysis) accepts the converted ZIP directly. Claude and Gemini do not accept ZIP attachments, so unzip the bundle on your device first and upload the CSV files individually.
               </FaqItem>
             </div>
           </div>
