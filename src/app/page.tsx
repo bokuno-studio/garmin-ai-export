@@ -295,7 +295,7 @@ export default function Home() {
             <HeroFact
               icon={<WalletCards aria-hidden="true" size={19} />}
               label="Download fee"
-              value="¥1,200 — Apple Pay & Google Pay supported"
+              value="¥300 — Apple Pay & Google Pay supported"
             />
           </div>
         </div>
@@ -505,7 +505,7 @@ export default function Home() {
               <div className="mb-3 rounded-md border border-[#f6d58f] bg-[#fff9eb] p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#6f4b00]">
                   <WalletCards aria-hidden="true" size={17} />
-                  Download fee: ¥1,200
+                  Download fee: ¥300
                 </div>
                 <p className="mt-1 text-sm text-[#7a5a16]">
                   Apple Pay and Google Pay are supported via Square checkout.
@@ -532,7 +532,7 @@ export default function Home() {
                   ) : (
                     <CreditCard aria-hidden="true" size={18} />
                   )}
-                  {isCreatingPayment ? "Opening Square checkout" : "Pay \u00a51,200 to Download"}
+                  {isCreatingPayment ? "Opening Square checkout" : "Pay \u00a5300 to Download"}
                 </button>
               )}
 

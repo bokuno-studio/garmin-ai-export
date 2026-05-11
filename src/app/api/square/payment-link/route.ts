@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const SQUARE_API_VERSION = "2026-01-22";
 const PRODUCT_NAME = "Garmin AI Export";
-const PRODUCT_PRICE = 1200;
+const PRODUCT_PRICE = 300;
 const PRODUCT_CURRENCY = "JPY";
 const PRODUCTION_REDIRECT_URL = "https://garmin-ai-export.vercel.app?paid=true";
 const PRODUCTION_ORIGIN = new URL(PRODUCTION_REDIRECT_URL).origin;
