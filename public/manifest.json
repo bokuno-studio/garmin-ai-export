@@ -1,0 +1,23 @@
+{
+  "name": "Garmin AI Export",
+  "short_name": "Garmin CSV",
+  "description": "Convert Garmin Connect exports into AI-ready CSV files for ChatGPT, Gemini, and Claude.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f8fb",
+  "theme_color": "#104c3f",
+  "categories": ["health", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

@@ -594,6 +594,45 @@ export default function Home() {
           </section>
         </aside>
       </div>
+
+      <section className="border-t border-[#d8dee8] bg-white">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="max-w-3xl space-y-3">
+            <p className="text-sm font-semibold uppercase tracking-normal text-[#28735f]">
+              Built for Garmin data analysis
+            </p>
+            <h2 className="text-xl font-semibold tracking-normal text-[#101827]">
+              What is Garmin AI Export?
+            </h2>
+            <p className="text-base leading-7 text-[#475467]">
+              Garmin AI Export converts the ZIP file you export from Garmin Connect into clean CSV files that AI tools can read directly. It extracts activity history, sleep, daily health, and lap data into a compact CSV bundle for ChatGPT, Gemini, Claude, or your own analysis workflow.
+            </p>
+            <p className="text-base leading-7 text-[#475467]">
+              Conversion runs in your browser using local JavaScript. Your Garmin health data is not uploaded to a conversion server, and the generated ZIP is prepared on your device.
+            </p>
+          </div>
+
+          <div>
+            <h2 className="text-base font-semibold tracking-normal text-[#101827]">
+              FAQ
+            </h2>
+            <div className="mt-3 divide-y divide-[#e4e8ef] border-y border-[#e4e8ef]">
+              <FaqItem question="Where do I get the Garmin export ZIP?">
+                Garmin Connect provides it from Account, Data Management, Export Your Data.
+              </FaqItem>
+              <FaqItem question="Is my Garmin data sent to a server?">
+                No. The ZIP is parsed in your browser, and CSV generation happens on your device.
+              </FaqItem>
+              <FaqItem question="Which files are generated?">
+                The converted bundle includes activities.csv, sleep.csv, daily_health.csv, and laps.csv when those records are available in the Garmin export.
+              </FaqItem>
+              <FaqItem question="What can I do with the CSV files?">
+                Upload them to ChatGPT, Gemini, Claude, spreadsheet software, or another analysis tool to review training patterns, sleep trends, and daily health signals.
+              </FaqItem>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -689,6 +728,23 @@ function GuideStep({
         />
       )}
     </div>
+  );
+}
+
+function FaqItem({
+  children,
+  question,
+}: {
+  children: ReactNode;
+  question: string;
+}) {
+  return (
+    <details className="group py-4">
+      <summary className="cursor-pointer text-sm font-semibold text-[#101827]">
+        {question}
+      </summary>
+      <p className="mt-2 text-sm leading-6 text-[#667085]">{children}</p>
+    </details>
   );
 }
 
