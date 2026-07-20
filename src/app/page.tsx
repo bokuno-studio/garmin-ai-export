@@ -59,14 +59,11 @@ export default function Home() {
   const [restoringPayment, setRestoringPayment] = useState(false);
 
   useEffect(() => {
-    if (!consumePaidReturn()) {
-      return undefined;
-    }
-
     let cancelled = false;
 
-    void Promise.resolve().then(async () => {
-      if (cancelled) {
+    void (async () => {
+      const paid = await consumePaidReturn();
+      if (!paid || cancelled) {
         return;
       }
 
@@ -112,7 +109,7 @@ export default function Home() {
           setRestoringPayment(false);
         }
       }
-    });
+    })();
 
     return () => {
       cancelled = true;
@@ -762,19 +759,35 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
 
-function consumePaidReturn(): boolean {
+async function consumePaidReturn(): Promise<boolean> {
   if (typeof window === "undefined") {
     return false;
   }
 
   const url = new URL(window.location.href);
-  if (url.searchParams.get("paid") !== "true") {
-    return false;
-  }
+  const orderId = url.searchParams.get("orderId");
+  const isDevelopmentFallback =
+    process.env.NODE_ENV === "development" && url.searchParams.get("paid") === "true";
+  if (!orderId && !isDevelopmentFallback) return false;
 
+  url.searchParams.delete("orderId");
   url.searchParams.delete("paid");
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  return true;
+
+  if (isDevelopmentFallback) return true;
+  if (!orderId) return false;
+
+  try {
+    const response = await fetch("/api/square/verify", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId }),
+    });
+    const payload: unknown = await response.json().catch(() => null);
+    return response.ok && isRecord(payload) && payload.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 function getPaymentLinkUrl(payload: unknown): string | null {
