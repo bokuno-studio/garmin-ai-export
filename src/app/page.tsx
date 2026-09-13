@@ -27,6 +27,7 @@ import {
   type ConversionProgress,
   type ConversionResult,
 } from "@/lib/garmin-converter";
+import { DOWNLOAD_FEE_LABEL } from "@/lib/square-order";
 import {
   clearConversionForPayment,
   loadConversionForPayment,
@@ -292,7 +293,7 @@ export default function Home() {
             <HeroFact
               icon={<WalletCards aria-hidden="true" size={19} />}
               label="Download fee"
-              value="¥300 — Apple Pay & Google Pay supported"
+              value={`${DOWNLOAD_FEE_LABEL} — Apple Pay & Google Pay supported`}
             />
           </div>
         </div>
@@ -502,7 +503,7 @@ export default function Home() {
               <div className="mb-3 rounded-md border border-[#f6d58f] bg-[#fff9eb] p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#6f4b00]">
                   <WalletCards aria-hidden="true" size={17} />
-                  Download fee: ¥300
+                  Download fee: {DOWNLOAD_FEE_LABEL}
                 </div>
                 <p className="mt-1 text-sm text-[#7a5a16]">
                   Apple Pay and Google Pay are supported via Square checkout.
@@ -529,7 +530,7 @@ export default function Home() {
                   ) : (
                     <CreditCard aria-hidden="true" size={18} />
                   )}
-                  {isCreatingPayment ? "Opening Square checkout" : "Pay \u00a5300 to Download"}
+                  {isCreatingPayment ? "Opening Square checkout" : `Pay ${DOWNLOAD_FEE_LABEL} to Download`}
                 </button>
               )}
 

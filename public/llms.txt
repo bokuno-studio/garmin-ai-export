@@ -15,7 +15,7 @@ Garmin data is parsed locally in the browser. The uploaded ZIP and generated CSV
 
 ## Price
 
-Download fee: ¥300. Apple Pay and Google Pay are supported through Square checkout.
+Download fee: ¥900. Apple Pay and Google Pay are supported through Square checkout.
 
 ## Canonical URL
 

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { isPaidSquareOrder } from "./square-order.ts";
+import { DOWNLOAD_FEE_YEN, isPaidSquareOrder } from "./square-order.ts";
 
 const now = Date.parse("2026-07-16T05:36:00.000Z");
 const locationId = "<SQUARE_LOCATION_ID>";
@@ -11,7 +11,7 @@ const capturedCardTender = {
   transaction_id: "wEmZJ8k6w9fmLOIQbwGJ5X5nm3OZY",
   created_at: "2026-07-16T05:35:02.923Z",
   note: "Garmin AI Export",
-  amount_money: { amount: 300, currency: "JPY" },
+  amount_money: { amount: DOWNLOAD_FEE_YEN, currency: "JPY" },
   tip_money: { amount: 0, currency: "JPY" },
   type: "CARD",
   card_details: {
@@ -28,7 +28,7 @@ function order(overrides: Record<string, unknown> = {}) {
       state: "OPEN",
       location_id: locationId,
       created_at: "2026-07-16T05:35:02.923Z",
-      total_money: { amount: 300, currency: "JPY" },
+      total_money: { amount: DOWNLOAD_FEE_YEN, currency: "JPY" },
       net_amount_due_money: { amount: 0, currency: "JPY" },
       tenders: [capturedCardTender],
       ...overrides,
@@ -48,8 +48,23 @@ test("accepts the captured, fully paid OPEN order from the real Square fixture",
   );
 });
 
+test("rejects orders paid below the current download fee", () => {
+  assert.equal(DOWNLOAD_FEE_YEN, 900);
+  assert.equal(
+    isPaidSquareOrder(
+      order({
+        total_money: { amount: 300, currency: "JPY" },
+        tenders: [{ ...capturedCardTender, amount_money: { amount: 300, currency: "JPY" } }],
+      }),
+      locationId,
+      now,
+    ),
+    false,
+  );
+});
+
 test("rejects orders with a remaining balance, wrong location, or expired age", () => {
-  assert.equal(isPaidSquareOrder(order({ net_amount_due_money: { amount: 300, currency: "JPY" } }), locationId, now), false);
+  assert.equal(isPaidSquareOrder(order({ net_amount_due_money: { amount: DOWNLOAD_FEE_YEN, currency: "JPY" } }), locationId, now), false);
   assert.equal(isPaidSquareOrder(order({ location_id: "OTHER" }), locationId, now), false);
   assert.equal(isPaidSquareOrder(order({ created_at: "2026-07-15T05:35:02.922Z" }), locationId, now), false);
 });
@@ -57,7 +72,7 @@ test("rejects orders with a remaining balance, wrong location, or expired age", 
 test("accepts non-card captured payment methods and rejects uncaptured cards", () => {
   assert.equal(
     isPaidSquareOrder(
-      order({ tenders: [{ amount_money: { amount: 300, currency: "JPY" }, type: "CASH" }] }),
+      order({ tenders: [{ amount_money: { amount: DOWNLOAD_FEE_YEN, currency: "JPY" }, type: "CASH" }] }),
       locationId,
       now,
     ),
@@ -68,7 +83,7 @@ test("accepts non-card captured payment methods and rejects uncaptured cards", (
       order({
         tenders: [
           {
-            amount_money: { amount: 300, currency: "JPY" },
+            amount_money: { amount: DOWNLOAD_FEE_YEN, currency: "JPY" },
             type: "CARD",
             card_details: { status: "PENDING" },
           },
