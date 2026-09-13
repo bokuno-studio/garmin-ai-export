@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { DOWNLOAD_FEE_YEN } from "@/lib/square-order";
 import "./globals.css";
 
 const SITE_URL = "https://garmin-ai-export.vercel.app";
@@ -80,7 +81,7 @@ const softwareApplicationJsonLd = {
   description: SITE_DESCRIPTION,
   offers: {
     "@type": "Offer",
-    price: "300",
+    price: String(DOWNLOAD_FEE_YEN),
     priceCurrency: "JPY",
   },
 };

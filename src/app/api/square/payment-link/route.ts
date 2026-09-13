@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { DOWNLOAD_FEE_YEN } from "@/lib/square-order";
 import {
   checkRequestRateLimit,
   getSquareApiBaseUrl,
@@ -11,7 +12,6 @@ export const runtime = "nodejs";
 
 const SQUARE_API_VERSION = "2026-01-22";
 const PRODUCT_NAME = "Garmin AI Export";
-const PRODUCT_PRICE = 300;
 const PRODUCT_CURRENCY = "JPY";
 const PRODUCTION_REDIRECT_URL = "https://garmin-ai-export.vercel.app";
 const PAYMENT_LINK_INTENT = "create_payment_link";
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           quick_pay: {
             name: PRODUCT_NAME,
             price_money: {
-              amount: PRODUCT_PRICE,
+              amount: DOWNLOAD_FEE_YEN,
               currency: PRODUCT_CURRENCY,
             },
             location_id: locationId,

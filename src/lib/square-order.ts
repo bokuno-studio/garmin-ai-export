@@ -1,4 +1,5 @@
-const PAYMENT_MINIMUM_YEN = 300;
+export const DOWNLOAD_FEE_YEN = 900;
+export const DOWNLOAD_FEE_LABEL = `¥${DOWNLOAD_FEE_YEN.toLocaleString("en-US")}`;
 const ORDER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export function isPaidSquareOrder(
@@ -13,7 +14,7 @@ export function isPaidSquareOrder(
     return false;
   }
 
-  if (!hasMoney(order.total_money, PAYMENT_MINIMUM_YEN, "JPY", true)) return false;
+  if (!hasMoney(order.total_money, DOWNLOAD_FEE_YEN, "JPY", true)) return false;
   if (!hasMoney(order.net_amount_due_money, 0, undefined)) return false;
   return Array.isArray(order.tenders) && order.tenders.some(isCapturedTender);
 }
